@@ -14,13 +14,13 @@ export const metadata: Metadata = {
     default: "Baluni",
     template: "%s | Baluni",
   },
-  description: "Built with 🏗 Scaffold-ETH 2",
+  description: "🎈 Rebalance your token ease. 🦄",
   openGraph: {
     title: {
       default: "Baluni",
       template: "%s | Baluni",
     },
-    description: "Built with 🏗 Scaffold-ETH 2",
+    description: "🎈 Rebalance your token ease. 🦄",
     images: [
       {
         url: imageUrl,

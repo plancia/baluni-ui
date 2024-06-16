@@ -27,15 +27,18 @@ const Rebalance: NextPage = () => {
 
           {/* Card 2 */}
           <div className="flex flex-col items-center p-6  rounded-lg ">
-            <p className="text-6xl md:text-6xl text-left mb-2 justify-center leading-2 opacity-75">
+            <p className="text-6xl md:text-6xl text-left mb-2 justify-center leading-8 opacity-75">
               You can keep your tokens balanced according to the percentages you choose.
             </p>
           </div>
 
           <div className="flex flex-col bg-base-300 items-center p-10 shadow-lg rounded-lg hover:bg-base-100 hover:text-base-content transition-all duration-300">
-            <p className="text-4xl md:text-4xl text-right align-sub mb-2 justify-center leading-2 ">
+            <p className="text-4xl md:text-4xl text-right align-sub mb-2 justify-center leading-4 ">
               Baluni automatically identifies the overperforming tokens and rebalances your portfolio.
             </p>
+          </div>
+
+          <div className="flex flex-col items-center p-6 rounded-lg bg-base-200 ">
             <div className="mt-8">
               <p className="text-2xl md:text-2xl text-justify leading-2 tracking-wider">
                 By utilizing{" "}
@@ -49,7 +52,7 @@ const Rebalance: NextPage = () => {
                 <img
                   src="https://assets.odos.xyz/landingPage/logo_white_transparent.png"
                   alt="ODOS Logo"
-                  className="hover:bg-base-300 mt-2"
+                  className="mt-2 mix-blend-difference"
                 />
               </p>
             </div>
@@ -58,7 +61,7 @@ const Rebalance: NextPage = () => {
       </div>
 
       {/* Call to Action Section */}
-      <div className="text-center mx-auto my-10 text-lg md:text-xl lg:text-2xl font-semibold ">
+      <div className="text-center mx-auto my-10 text-lg md:text-xl lg:text-xl font-semibold ">
         <RebalanceBox />
         <div className="animate-pulse mt-8">🪄 Check the console to see the magic happen</div>
       </div>

@@ -1,3 +1,4 @@
+/* eslint-disable @next/next/no-img-element */
 import React from "react";
 import MultiSwapBox from "../../components/MultiSwapBox";
 import { NextPage } from "next";
@@ -6,8 +7,8 @@ const Swap: NextPage = () => {
   return (
     <div className="container mx-auto px-4 sm:px-6 lg:px-8">
       <div className="flex justify-center items-center">
-        <div className="font-bold text-center my-10 text-6xl bg-gradient-to-r from-blue-600 via-slate-400 to-base-300 text-transparent bg-clip-text ">
-          Multiswap
+        <div className="font-bold text-center my-10 text-5xl md:text-6xl lg:text-7xl bg-gradient-to-r from-blue-600 via-slate-400 to-base-300 text-transparent bg-clip-text">
+          MultiSwap
         </div>
       </div>
       <div className="collapse">
@@ -25,8 +26,11 @@ const Swap: NextPage = () => {
 
           <div className="flex flex-col bg-base-300 items-center p-10 shadow-lg rounded-lg hover:bg-base-100 hover:text-base-content transition-all duration-300">
             <p className="text-4xl md:text-4xl text-right align-sub mb-2 justify-center leading-2 ">
-              Baluni encode the best operation and batch it in a single transaction.
+              Baluni encodes the optimal operations and batches them into a single transaction.
             </p>
+          </div>
+
+          <div className="flex flex-col items-center p-6  rounded-lg ">
             <div className="mt-8">
               <p className="text-2xl md:text-2xl text-justify leading-2 tracking-wider">
                 By utilizing{" "}
@@ -40,7 +44,7 @@ const Swap: NextPage = () => {
                 <img
                   src="https://assets.odos.xyz/landingPage/logo_white_transparent.png"
                   alt="ODOS Logo"
-                  className="hover:bg-base-300 mt-2"
+                  className=" mt-2 mix-blend-difference"
                 />
               </p>
             </div>

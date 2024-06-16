@@ -72,7 +72,7 @@ const SwapBox = () => {
 
   const setContract = async () => {
     const registry = new Contract(INFRA[137].REGISTRY, registryAbi.abi, clientToSigner(signer as any));
-    const poolFactory = await registry.getBaluniPoolFactory();
+    const poolFactory = await registry.getBaluniPoolRegistry();
     const poolPeriphery = await registry.getBaluniPoolPeriphery();
     setPoolFactory(poolFactory);
     setPoolPeriphery(poolPeriphery);
@@ -157,14 +157,17 @@ const SwapBox = () => {
       const approveTx = await fromTokenContract.approve(poolPeriphery, ethers.utils.parseUnits(fromAmount, decimals));
       await approveTx.wait();
     }
-
+    const deadline = Math.floor(Date.now() / 1000) + 30; // 10 minutes from now
     const periphery = new ethers.Contract(poolPeriphery!, poolPeripheryAbi.abi, clientToSigner(signer));
     try {
-      const tx = await periphery.swap(
+      const tx = await periphery.swapTokenForToken(
         fromToken,
         toToken,
         ethers.utils.parseUnits(fromAmount, decimals),
+        0,
         signer.account.address,
+        signer.account.address,
+        deadline,
       );
       await tx.wait();
       notification.success("Swap completed successfully!");

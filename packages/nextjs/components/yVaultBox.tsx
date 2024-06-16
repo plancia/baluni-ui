@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unused-vars */
 "use client";
 
 import React, { useEffect, useState } from "react";
@@ -18,32 +17,6 @@ import { erc20ABI, useWalletClient } from "wagmi";
 import Spinner from "~~/components/Spinner";
 import { clientToSigner } from "~~/utils/ethers";
 import { notification } from "~~/utils/scaffold-eth";
-
-/* eslint-disable @typescript-eslint/no-unused-vars */
-
-/* eslint-disable @typescript-eslint/no-unused-vars */
-
-/* eslint-disable @typescript-eslint/no-unused-vars */
-
-/* eslint-disable @typescript-eslint/no-unused-vars */
-
-/* eslint-disable @typescript-eslint/no-unused-vars */
-
-/* eslint-disable @typescript-eslint/no-unused-vars */
-
-/* eslint-disable @typescript-eslint/no-unused-vars */
-
-/* eslint-disable @typescript-eslint/no-unused-vars */
-
-/* eslint-disable @typescript-eslint/no-unused-vars */
-
-/* eslint-disable @typescript-eslint/no-unused-vars */
-
-/* eslint-disable @typescript-eslint/no-unused-vars */
-
-/* eslint-disable @typescript-eslint/no-unused-vars */
-
-/* eslint-disable @typescript-eslint/no-unused-vars */
 
 const VAULTS_API = "https://ydaemon.yearn.fi/137/vaults/all";
 
@@ -65,19 +38,19 @@ type Vault = {
   tokenSymbol: string;
 };
 
-interface YVault {
-  display_name: string;
-  display_symbol: string;
-  address: string;
-  token: Token;
-  vaultAddress: string;
-  vaultName: string;
-  vaultSymbol: string;
-}
+// interface YVault {
+//   display_name: string;
+//   display_symbol: string;
+//   address: string;
+//   token: Token;
+//   vaultAddress: string;
+//   vaultName: string;
+//   vaultSymbol: string;
+// }
 
 const YVaultBox = () => {
   const { data: signer } = useWalletClient();
-  const [router, setRouter] = useState<string | undefined>();
+  const [router /* setRouter */] = useState<string | undefined>();
   const { tokens } = useTokenList();
 
   const [vaults, setVaults] = useState<Vault[]>([]);

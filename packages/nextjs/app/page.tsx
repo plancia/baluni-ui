@@ -8,6 +8,12 @@ export default function Home() {
       <Head>
         <title>Baluni - Home</title>
         <meta name="description" content="Welcome to Baluni" />
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" />
+        <link
+          href="https://fonts.googleapis.com/css2?family=Reddit+Sans:ital,wght@0,200..900;1,200..900&display=swap"
+          rel="stylesheet"
+        ></link>
       </Head>
 
       {/* Hero Section */}
@@ -16,7 +22,6 @@ export default function Home() {
         <div className="hero-content text-center text-neutral-content">
           <div className="max-w-xl">
             <h1 className="mb-5 text-5xl font-bold text-black">Rebalance your tokens with no effort.</h1>
-
             <Link href="/rebalance" passHref className="btn btn-primary">
               Rebalance
             </Link>

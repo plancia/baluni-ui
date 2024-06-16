@@ -510,7 +510,7 @@ const RebalanceBox = () => {
               <h2 className="card-title">Rebalance Stats</h2>
               <div className="card-body bg-base-100 mb-2 rounded-2xl">{renderRebalanceStats()}</div>
               <div className="flex justify-center mt-2">
-                <img src={odosPathViz} alt="Visualization of Rebalance Path" className="w-full" />
+                {odosPathViz && <img src={odosPathViz} alt="Visualization of Rebalance Path" className="w-full" />}
               </div>
             </div>
           </div>

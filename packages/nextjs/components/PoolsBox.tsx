@@ -3,7 +3,6 @@
 import React, { useEffect, useState } from "react";
 import useTokenList from "../hooks/useTokenList";
 import baluniPoolAbi from "baluni-contracts/artifacts/contracts/pools/BaluniV1Pool.sol/BaluniV1Pool.json";
-import poolPeripheryAbi from "baluni-contracts/artifacts/contracts/pools/BaluniV1PoolPeriphery.sol/BaluniV1PoolPeriphery.json";
 import poolRegistryAbi from "baluni-contracts/artifacts/contracts/registry/BaluniV1PoolRegistry.sol/BaluniV1PoolRegistry.json";
 import registryAbi from "baluni-contracts/artifacts/contracts/registry/BaluniV1Registry.sol/BaluniV1Registry.json";
 import { INFRA } from "baluni/dist/api/";
@@ -13,14 +12,13 @@ import Spinner from "~~/components/Spinner";
 import { clientToSigner } from "~~/utils/ethers";
 import { notification } from "~~/utils/scaffold-eth";
 
-/* eslint-disable @next/next/no-img-element */
-
 interface DeviationData {
   symbol: string;
   direction: boolean;
   deviation: string;
   targetWeight: string;
   currentWeight: string;
+  slippage: string;
 }
 
 interface TokenBalance {
@@ -40,6 +38,7 @@ interface RemoveLiquidityData {
 }
 
 interface Token {
+  address: string;
   symbol: string;
   logoURI: string;
 }
@@ -59,6 +58,7 @@ const PoolsBox = () => {
   const [pools, setPools] = useState<string[]>([]);
   const [poolSymbols, setPoolSymbols] = useState<{ [key: string]: string }>({});
   const [liquidityBalances, setLiquidityBalances] = useState<{ [key: string]: string }>({});
+  const [tlvs, setTlvs] = useState<{ [key: string]: string }>({});
   const [deviations, setDeviations] = useState<{ [key: string]: DeviationData[] }>({});
   const [liquidityData, setLiquidityData] = useState<LiquidityData>({
     amounts: [],
@@ -92,14 +92,14 @@ const PoolsBox = () => {
 
     fetchData();
 
-    const intervalId = setInterval(fetchData, 30000);
+    const intervalId = setInterval(fetchData, 100000);
 
     return () => clearInterval(intervalId);
   }, [signer, poolFactory]);
 
   const setContract = async () => {
     const registry = new Contract(INFRA[137].REGISTRY, registryAbi.abi, clientToSigner(signer as any));
-    const poolFactory = await registry.getBaluniPoolFactory();
+    const poolFactory = await registry.getBaluniPoolRegistry();
     const poolPeriphery = await registry.getBaluniPoolPeriphery();
     setPoolFactory(poolFactory);
     setPoolPeriphery(poolPeriphery);
@@ -118,12 +118,12 @@ const PoolsBox = () => {
     const balances: { [key: string]: string } = {};
     const symbols: { [key: string]: string } = {};
     const deviationsData: { [key: string]: DeviationData[] } = {};
-
+    const tlvs: { [key: string]: string } = {};
     for (const poolAddress of poolAddresses) {
       const pool = new ethers.Contract(poolAddress, baluniPoolAbi.abi, clientToSigner(signer));
       const balance = await pool.balanceOf(signer.account.address);
       balances[poolAddress] = ethers.utils.formatUnits(balance, 18);
-
+      tlvs[poolAddress] = ethers.utils.formatUnits(await pool.liquidity(), 6);
       const poolAssets = await pool.getAssets();
       const assetContracts = poolAssets.map(
         (asset: string) => new ethers.Contract(asset, erc20ABI, clientToSigner(signer)),
@@ -132,19 +132,17 @@ const PoolsBox = () => {
         assetContracts.map((contract: { symbol: () => any }) => contract.symbol()),
       );
       symbols[poolAddress] = assetSymbols.join(" / ");
-
       const poolERC20 = new ethers.Contract(poolAddress, erc20ABI, clientToSigner(signer));
       const totalSupply = await poolERC20.totalSupply();
-
       let deviationsArray: string[] = [];
       let directionsArray: boolean[] = [];
+      let slippagesArray: number[] = [];
 
       if (totalSupply.toString() !== "0") {
-        [directionsArray, deviationsArray] = await pool.getDeviation();
+        [directionsArray, deviationsArray] = await pool.getDeviations();
+        slippagesArray = await pool.getSlippageParams();
       }
-
       const weights = await pool.getWeights();
-
       deviationsData[poolAddress] = assetSymbols.map((symbol, index) => ({
         symbol,
         direction: directionsArray[index],
@@ -153,10 +151,12 @@ const PoolsBox = () => {
         currentWeight: directionsArray[index]
           ? (Number(weights[index]) + Number(deviationsArray[index])).toString()
           : (Number(weights[index]) - Number(deviationsArray[index])).toString(),
+        slippage: String(slippagesArray[index]),
       }));
     }
 
     setLiquidityBalances(balances);
+    setTlvs(tlvs);
     setPoolSymbols(symbols);
     setDeviations(deviationsData);
   };
@@ -173,12 +173,12 @@ const PoolsBox = () => {
     setter: React.Dispatch<React.SetStateAction<any>>,
   ) => {
     if (!signer) return;
-
     const { name, value } = e.target;
     setter((prevState: any) => ({ ...prevState, [name]: value }));
 
     if (name === "fromToken" || name === "toToken" || name === "token") {
       const account = signer.account.address;
+
       if ((name === "fromToken" || name === "token") && value) {
         const balance = await fetchTokenBalance(value, account);
         setTokenBalances(prevState => ({ ...prevState, fromTokenBalance: balance }));
@@ -191,16 +191,13 @@ const PoolsBox = () => {
 
   const handlePoolClick = async (poolAddress: string) => {
     if (!signer) return;
-
     const pool = new ethers.Contract(poolAddress, baluniPoolAbi.abi, clientToSigner(signer));
     const tokens = await pool.getAssets();
-
     setLiquidityData({
       amounts: new Array(tokens.length).fill(""),
       tokens,
       poolAddress,
     });
-
     setRemoveLiquidityData({
       ...removeLiquidityData,
       poolAddress,
@@ -210,29 +207,28 @@ const PoolsBox = () => {
   const handleAddLiquidity = async () => {
     const { amounts, tokens, poolAddress } = liquidityData;
     if (!poolAddress) return notification.error("Select pool first!");
+
     if (!signer || !amounts.every(amount => amount) || !tokens.every(token => token)) return;
-
     const decimals: number[] = [];
-
     for (const token of tokens) {
       const tokenContract = new ethers.Contract(token, erc20ABI, clientToSigner(signer));
       decimals.push(await tokenContract.decimals());
-
-      const allowance = await tokenContract.allowance(signer.account.address, poolPeriphery);
+      const allowance = await tokenContract.allowance(signer.account.address, poolAddress);
 
       if (allowance.lt(ethers.utils.parseUnits(amounts[tokens.indexOf(token)], await tokenContract.decimals()))) {
         const approveTx = await tokenContract.approve(
-          poolPeriphery,
+          poolAddress,
           ethers.utils.parseUnits(amounts[tokens.indexOf(token)], await tokenContract.decimals()),
         );
         await approveTx.wait();
       }
     }
-
-    const periphery = new ethers.Contract(poolPeriphery!, poolPeripheryAbi.abi, clientToSigner(signer));
+    const pool = new ethers.Contract(poolAddress!, baluniPoolAbi.abi, clientToSigner(signer));
     try {
       const parsedAmounts = amounts.map((amount, index) => ethers.utils.parseUnits(amount, decimals[index]));
-      const tx = await periphery.addLiquidity(parsedAmounts, poolAddress, signer.account.address);
+      const currentTime = Math.floor(Date.now() / 1000); // Current time in seconds
+      const deadline = currentTime + 600; // 10 minutes from now
+      const tx = await pool.deposit(signer.account.address, parsedAmounts, deadline);
       await tx.wait();
       notification.success("Liquidity added successfully!");
     } catch (error) {
@@ -243,22 +239,19 @@ const PoolsBox = () => {
   const handleRebalanceWeight = async () => {
     try {
       if (!signer) return;
-
       const { tokens, poolAddress } = liquidityData;
-      const periphery = new ethers.Contract(poolPeriphery!, poolPeripheryAbi.abi, clientToSigner(signer));
 
       for (const token of tokens) {
         const tokenContract = new ethers.Contract(token, erc20ABI, clientToSigner(signer));
-
-        const allowance = await tokenContract.allowance(signer.account.address, periphery.address);
+        const allowance = await tokenContract.allowance(signer.account.address, poolAddress);
 
         if (allowance.lt(ethers.constants.MaxUint256)) {
-          const approveTx = await tokenContract.approve(periphery.address, ethers.constants.MaxUint256);
+          const approveTx = await tokenContract.approve(poolAddress, ethers.constants.MaxUint256);
           await approveTx.wait();
         }
       }
-
-      const tx = await periphery.rebalanceWeights(poolAddress, signer.account.address);
+      const pool = new ethers.Contract(poolAddress!, baluniPoolAbi.abi, clientToSigner(signer));
+      const tx = await pool.rebalanceAndDeposit(signer.account.address);
       await tx.wait();
       notification.success("Rebalanced weights successfully!");
     } catch (error: any) {
@@ -268,19 +261,24 @@ const PoolsBox = () => {
 
   const handleRemoveLiquidity = async () => {
     const { poolAddress, amount } = removeLiquidityData;
+
     if (!signer || !poolAddress || !amount) return;
-    const periphery = new ethers.Contract(poolPeriphery!, poolPeripheryAbi.abi, clientToSigner(signer));
+
     const tokenContract = new ethers.Contract(poolAddress, baluniPoolAbi.abi, clientToSigner(signer));
-    const allowance = await tokenContract.allowance(signer.account.address, periphery.address);
+    const allowance = await tokenContract.allowance(signer.account.address, poolAddress);
+    const pool = new ethers.Contract(poolAddress!, baluniPoolAbi.abi, clientToSigner(signer));
 
     if (allowance.lt(ethers.utils.parseUnits(amount, 18))) {
-      const approveTx = await tokenContract.approve(periphery.address, ethers.utils.parseUnits(amount, 18));
+      const approveTx = await tokenContract.approve(poolAddress, ethers.utils.parseUnits(amount, 18));
       await approveTx.wait();
     }
 
+    const currentTime = Math.floor(Date.now() / 1000);
+    const deadline = currentTime + 600;
     const shares = ethers.utils.parseUnits(amount, 18);
+
     try {
-      const tx = await periphery.removeLiquidity(shares, poolAddress, signer.account.address);
+      const tx = await pool.withdraw(shares, signer.account.address, deadline);
       await tx.wait();
       notification.success("Liquidity removed successfully!");
     } catch (error) {
@@ -289,12 +287,13 @@ const PoolsBox = () => {
   };
 
   const handleRebalance = async (poolAddress: string) => {
-    if (!signer) return;
+    if (!signer || !poolAddress) return;
 
     // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-    const periphery = new ethers.Contract(poolPeriphery!, poolPeripheryAbi.abi, clientToSigner(signer));
+    const pool = new ethers.Contract(poolAddress, baluniPoolAbi.abi, clientToSigner(signer));
+
     try {
-      const tx = await periphery.performRebalanceIfNeeded(poolAddress);
+      const tx = await pool.rebalance();
       await tx.wait();
       notification.success("Rebalance performed successfully!");
     } catch (error) {
@@ -343,6 +342,7 @@ const PoolsBox = () => {
         weight: assetWeights[index],
         targetWeight: deviationsData[index].targetWeight,
         currentWeight: deviationsData[index].currentWeight,
+        slippage: deviationsData[index].slippage,
       })),
       totalLiquidity: Number(totalLiquidity),
       unitPrice: Number(unitPrice / 1e18),
@@ -354,6 +354,11 @@ const PoolsBox = () => {
     }
   };
 
+  function getTokenSymbol(tokenAddress: string) {
+    const token = (tokens as Token[]).find(token => token.address === tokenAddress) as Token | undefined;
+    return token ? token.symbol : "Unknown Token";
+  }
+
   return (
     <div className="container mx-auto p-6">
       <div className="grid grid-cols-1 md:grid-cols-1 gap-6 w-full sm:w-3/4 md:w-3/4 lg:w-3/3 xl:w-3/4 mx-auto">
@@ -361,66 +366,68 @@ const PoolsBox = () => {
           <h2 className="card-title text-3xl mb-8">Pairs</h2>
           <ul className="space-y-4">
             {pools.map((pool, index) => (
-              <li key={index} className="bg-base-100 shadow-md rounded-lg p-4 space-y-2 text-base-content">
+              <li key={index} className="bg-base-100  rounded-lg p-4 space-y-2 text-base-content">
                 <div className="flex flex-col justify-between">
                   <div className="flex flex-col space-y-2">
                     <span className="font-semibold text-lg hover:underline" onClick={() => handlePoolClick(pool)}>
                       {poolSymbols[pool] || pool}
                     </span>
-                    <div className="flex space-x-2 text-2xl">
-                      {poolSymbols[pool] &&
-                        poolSymbols[pool].split(" / ").map((symbol, index) => {
-                          const token = tokens.find((token: Token) => token.symbol === symbol) as unknown as Token;
-                          return token ? (
-                            <img key={index} src={token.logoURI} alt={symbol} className="mask mask-circle w-10 h-10" />
-                          ) : null;
-                        })}
-                    </div>
-                    <span className="text-sm">Your Liquidity: {Number(liquidityBalances[pool]) || "0"}</span>
-                    <span>
-                      Deviation:{" "}
-                      {deviations[pool] ? (
-                        <>
-                          {deviations[pool].map((deviation, index) => (
-                            <span key={index}>
-                              {deviation.direction ? "" : "-"}
-                              {Number(deviation.deviation) / 100}%{index < deviations[pool].length - 1 && " / "}
-                            </span>
-                          ))}
-                        </>
-                      ) : (
-                        "N/A"
-                      )}
-                    </span>
-                    <span>
-                      Current Weights:{" "}
-                      {deviations[pool] ? (
-                        <>
-                          {deviations[pool].map((deviation, index) => (
-                            <span key={index}>
-                              {Number(deviation.currentWeight) / 100}%{index < deviations[pool].length - 1 && " / "}
-                            </span>
-                          ))}
-                        </>
-                      ) : (
-                        "N/A"
-                      )}
-                    </span>
-                    <span>
-                      Target Weights:{" "}
-                      {deviations[pool] ? (
-                        <>
-                          {deviations[pool].map((deviation, index) => (
-                            <span key={index}>
-                              {Number(deviation.targetWeight) / 100}%{index < deviations[pool].length - 1 && " / "}
-                            </span>
-                          ))}
-                        </>
-                      ) : (
-                        "N/A"
-                      )}
-                    </span>
                   </div>
+                  <div className="flex space-x-2 text-2xl my-2">
+                    {poolSymbols[pool] &&
+                      poolSymbols[pool].split(" / ").map((symbol, index) => {
+                        const token = tokens.find((token: Token) => token.symbol === symbol) as unknown as Token;
+                        return token ? (
+                          <img key={index} src={token.logoURI} alt={symbol} className="mask mask-circle w-10 h-10" />
+                        ) : null;
+                      })}
+                  </div>
+                  <span className="text-xl my-2 font-semibold">TLV: {Number(tlvs[pool]).toFixed(4)}</span>
+                  <span className="my-2">Your Liquidity: {Number(liquidityBalances[pool]) || "0"}</span>
+                  <span className="my-2">
+                    Deviation:{" "}
+                    {deviations[pool] ? (
+                      <>
+                        {deviations[pool].map((deviation, index) => (
+                          <span key={index}>
+                            {deviation.direction ? "" : "-"}
+                            {Number(deviation.deviation) / 100}%{index < deviations[pool].length - 1 && " / "}
+                          </span>
+                        ))}
+                      </>
+                    ) : (
+                      "N/A"
+                    )}
+                  </span>
+                  <span className="my-2">
+                    Current Weights:{" "}
+                    {deviations[pool] ? (
+                      <>
+                        {deviations[pool].map((deviation, index) => (
+                          <span key={index}>
+                            {Number(deviation.currentWeight) / 100}%{index < deviations[pool].length - 1 && " / "}
+                          </span>
+                        ))}
+                      </>
+                    ) : (
+                      "N/A"
+                    )}
+                  </span>
+                  <span className="my-2">
+                    Target Weights:{" "}
+                    {deviations[pool] ? (
+                      <>
+                        {deviations[pool].map((deviation, index) => (
+                          <span key={index}>
+                            {Number(deviation.targetWeight) / 100}%{index < deviations[pool].length - 1 && " / "}
+                          </span>
+                        ))}
+                      </>
+                    ) : (
+                      "N/A"
+                    )}
+                  </span>
+
                   <div className="flex justify-between items-center mt-4">
                     <button className="btn btn-sm btn-info" onClick={() => openModal(pool)}>
                       Info
@@ -453,13 +460,15 @@ const PoolsBox = () => {
                     </div>
                   </div>
                   {activeForm[pool] === "add" && (
-                    <div className="p-4 mt-4 bg-base-300 rounded-md">
+                    <div className="p-4 mt-4  rounded-md">
                       {liquidityData.tokens.map((token, index) => (
                         <div key={index}>
+                          <div className="mt-2">{getTokenSymbol(token)}</div>
+
                           <input
                             type="text"
                             name={`amount${index}`}
-                            className="input input-bordered w-full mb-2"
+                            className="input input-bordered w-full my-2"
                             placeholder={`Amount ${index + 1}`}
                             value={liquidityData.amounts[index]}
                             onChange={e => {
@@ -469,22 +478,6 @@ const PoolsBox = () => {
                                 ...prevState,
                                 amounts: newAmounts,
                               }));
-                            }}
-                          />
-                          <input
-                            type="text"
-                            name={`token${index}`}
-                            className="input input-bordered w-full mb-2"
-                            placeholder={`Token ${index + 1}`}
-                            value={liquidityData.tokens[index]}
-                            onChange={e => {
-                              const newTokens = [...liquidityData.tokens];
-                              newTokens[index] = e.target.value;
-                              setLiquidityData(prevState => ({
-                                ...prevState,
-                                tokens: newTokens,
-                              }));
-                              handleInputChange(e, setLiquidityData);
                             }}
                           />
                         </div>
@@ -498,7 +491,7 @@ const PoolsBox = () => {
                     </div>
                   )}
                   {activeForm[pool] === "remove" && (
-                    <div className="p-4 mt-4 bg-base-300 rounded-md">
+                    <div className="p-4 mt-4  rounded-md">
                       <input
                         type="text"
                         name="amount"
@@ -518,9 +511,9 @@ const PoolsBox = () => {
           </ul>
         </div>
         {modalData && (
-          <div className="p-4 bg-base-300 shadow rounded">
+          <div className="p-4  shadow rounded">
             <input type="checkbox" id="pool-info-modal" className="modal-toggle" />
-            <div className="modal">
+            <div className="modal  bg-blend-exclusion">
               <div className="modal-box relative">
                 <label htmlFor="pool-info-modal" className="btn btn-sm btn-circle absolute right-2 top-2 text-red-500">
                   ✕
@@ -536,6 +529,7 @@ const PoolsBox = () => {
                 {modalData.assets.map(
                   (
                     asset: {
+                      slippage(slippage: any): unknown;
                       symbol:
                         | string
                         | number
@@ -577,6 +571,9 @@ const PoolsBox = () => {
                           </div>
                         </div>
                         <div>
+                          <p className="mb-1">
+                            <strong className="text-gray-700">Slippage:</strong> {Number(asset.slippage) / 100}%
+                          </p>
                           <p className="mb-1">
                             <strong className="text-gray-700">Weight:</strong> {Number(asset.weight).toFixed(4)}%
                           </p>

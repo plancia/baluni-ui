@@ -3,9 +3,11 @@
  * You should not edit it manually or your changes might be overwritten.
  */
 import rebalancerABI from "baluni-contracts/artifacts/contracts/managers/BaluniV1Rebalancer.sol/BaluniV1Rebalancer.json";
+import oracleABI from "baluni-contracts/artifacts/contracts/oracles/BaluniV1Oracle.sol/BaluniV1Oracle.json";
 import agentABI from "baluni-contracts/artifacts/contracts/orchestators/BaluniV1Agent.sol/BaluniV1Agent.json";
 import factoryABI from "baluni-contracts/artifacts/contracts/orchestators/BaluniV1AgentFactory.sol/BaluniV1AgentFactory.json";
 import routerABI from "baluni-contracts/artifacts/contracts/orchestators/BaluniV1Router.sol/BaluniV1Router.json";
+import poolABI from "baluni-contracts/artifacts/contracts/pools/BaluniV1Pool.sol/BaluniV1Pool.json";
 import registryABI from "baluni-contracts/artifacts/contracts/registry/BaluniV1Registry.sol/BaluniV1Registry.json";
 import contracts from "baluni-contracts/deployments/deployedContracts.json";
 import { GenericContractsDeclaration } from "~~/utils/scaffold-eth/contract";
@@ -31,6 +33,14 @@ const deployedContracts = {
     Agent: {
       address: "0xAc35efC9c888c2e5f0C71706406f1819e9F3Ad0b",
       abi: agentABI.abi,
+    },
+    Oracle: {
+      address: contracts[137].BaluniV1Oracle,
+      abi: oracleABI.abi,
+    },
+    USDC_USDC_USDT_DAI: {
+      address: "0x2abEf7D3eCA3074277534FfFfd994851Ac0092d3",
+      abi: poolABI.abi,
     },
   },
 } as GenericContractsDeclaration;

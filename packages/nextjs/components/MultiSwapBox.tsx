@@ -13,12 +13,6 @@ import Spinner from "~~/components/Spinner";
 import { useScaffoldEventSubscriber } from "~~/hooks/scaffold-eth";
 import { notification } from "~~/utils/scaffold-eth";
 
-/* eslint-disable jsx-a11y/alt-text */
-
-/* eslint-disable @next/next/no-img-element */
-
-// import { BuildSwapOdosParams } from "baluni/dist/types/odos";
-
 type Token = {
   name: string;
   symbol: string;
@@ -538,7 +532,7 @@ const MultiSwapBox = () => {
         </div>
       ) : (
         <div>
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 p-10">
+          <div className="grid grid-cols-1 md:sm:grid-cols-2 lg:sm:grid-cols-4 xl:grid-cols-4 gap-4 p-10">
             {swaps.map((swap, index) => (
               <div key={swap.id} className="p-10 mb-2 bg-base-100 rounded-box border border-primary">
                 <div className="form-control">
@@ -610,7 +604,7 @@ const MultiSwapBox = () => {
           </div>
           <div className="p-10 mb-5 bg-base-100 rounded-box my-4 ">
             <h2 className="text-xl font-bold mb-8">Output Tokens</h2>
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 md:sm:grid-cols-2 lg:sm:grid-cols-4 xl:grid-cols-4 gap-4">
               {outputTokens.map((output, index) => (
                 <div key={index} className="p-10 bg-base-200 rounded-box border border-secondary">
                   <select
