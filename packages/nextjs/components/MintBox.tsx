@@ -40,7 +40,9 @@ const MintBox = () => {
 
   const useMaxBalance = async () => {
     const signerEthers = await clientToSigner(signer as any);
-    const stakingContract = new ethers.Contract(INFRA[137].ROUTER, RouterABI.abi, signerEthers);
+    const registry = new ethers.Contract(INFRA[137].REGISTRY, registryABI.abi, signerEthers);
+    const routerAddress = await registry.getBaluniRouter();
+    const stakingContract = new ethers.Contract(routerAddress, RouterABI.abi, signerEthers);
     setAmount(ethers.utils.formatEther(await stakingContract.balanceOf(signerEthers.getAddress())));
   };
 
@@ -76,7 +78,6 @@ const MintBox = () => {
 
     setBaluniAddress(routerAddress);
     setFormattedYourBalance(formattedBalance);
-
     setFormattedUnitPrice(formattedUnitPrice);
     setFormattedTotalValuation(formattedTotalValuation);
     setFormattedShare(formattedShare);
@@ -116,9 +117,7 @@ const MintBox = () => {
     const routerAddress = await registry.getBaluniRouter();
     const stakingContract = new ethers.Contract(routerAddress, RouterABI.abi, signerEthers);
     if (!amount) return;
-
     await stakingContract.mintWithUSDC(ethers.utils.parseEther(amount));
-
     setAmount("");
   };
 

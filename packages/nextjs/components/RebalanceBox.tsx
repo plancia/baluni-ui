@@ -405,7 +405,7 @@ const RebalanceBox = () => {
     <div className="container mx-auto p-4">
       <div>
         {!haveAgent ? (
-          <div className="flex items-center justify-center h-screen">
+          <div className="flex items-center justify-center ">
             <button className="btn btn-primary btn-lg" onClick={handleCreateAgent} aria-label="Create an Agent">
               Create an Agent
             </button>
